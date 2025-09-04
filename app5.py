@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import re
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 from io import BytesIO
 import pdfplumber
 
@@ -340,4 +340,5 @@ if uploaded:
     with col1:
         st.plotly_chart(fig_pie, use_container_width=False)
     with col2:
+
         st.plotly_chart(fig_donut, use_container_width=True)

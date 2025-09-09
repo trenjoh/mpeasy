@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import re
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 from io import BytesIO
 import pdfplumber
 
@@ -190,7 +190,26 @@ if uploaded:
     df_clean[col] = pd.to_numeric(df_clean[col], errors="coerce")
     df_clean= df_clean.drop(columns = ['withdrawn'])
     
+    # Clean the 'paid_in' column
+    df_clean["paid_in"] = (
+        df_clean["paid_in"]
+        .astype(str)                        # make sure it's string
+        .str.replace(",", "", regex=False)  # remove commas
+        .str.extract(r"([\d\.]+)")          # extract numeric part
+        .astype(float)                      # convert to float
+        .fillna(0)                          # replace NaN with 0
+    )
     
+    # Clean the 'paid_in' column
+    df_clean["withdraw_n"] = (
+        df_clean["withdraw_n"]
+        .astype(str)                        # make sure it's string
+        .str.replace(",", "", regex=False)  # remove commas
+        .str.extract(r"([\d\.]+)")          # extract numeric part
+        .astype(float)                      # convert to float
+        .fillna(0)                          # replace NaN with 0
+    )
+
     st.subheader("...Search Transaction by Receipt No.")
 
     # search box
@@ -211,17 +230,33 @@ if uploaded:
     search_name = st.text_input("Enter Name:").upper().strip()
 
     if search_name:
-        result = df_clean[df_clean["entity_name"].astype(str).str.contains(search_name, case=False, na=False)]
+        result = df_clean[df_clean["details"].astype(str).str.contains(search_name, case=False, na=False)]
 
         if not result.empty:
             st.write("Person/entity Found✅ :")
             st.dataframe(result, use_container_width=True)
         else:
-            st.warning("⚠️ No person with such a name.")
+            st.warning("⚠️ No person/entity with such a name.")
 
 
-    st.subheader("Cleaned Preview : Analyst Mode : Full Data")
-    st.dataframe(df_clean.head(30))
+    st.subheader("Cleaned Preview : Analyst Mode : Data")
+
+    # Initialize toggle state
+    if "show_df" not in st.session_state:
+        st.session_state.show_df = False
+
+    # Buttons only set the state
+    if not st.session_state.show_df:
+        if st.button("show/hide dataframe"):
+            st.session_state.show_df = True
+    else:
+        if st.button("show/hide dataframe"):
+            st.session_state.show_df = False
+
+    # Display dataframe if toggled
+    if st.session_state.show_df:
+        st.dataframe(df_clean, use_container_width=True)
+
     
     buf = BytesIO()
     df_clean.to_csv(buf, index=False)
@@ -233,7 +268,7 @@ if uploaded:
         mime="text/csv"
     )
     
-    st.subheader("Quick Visualization")
+    st.subheader("Visualization")
     print(df_clean.columns)
 
     import plotly.graph_objects as go
@@ -340,5 +375,17 @@ if uploaded:
     with col1:
         st.plotly_chart(fig_pie, use_container_width=False)
     with col2:
-
         st.plotly_chart(fig_donut, use_container_width=True)
+        
+    st.subheader("Top 5 Entities by Paid In")
+    summary = (
+        df_clean.groupby("entity_name")["paid_in"]
+        .sum()
+        .reset_index()
+        .sort_values(by="paid_in", ascending=False)
+        .head(5)
+    )
+    st.dataframe(summary, use_container_width= True)
+
+
+    

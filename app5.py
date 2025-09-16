@@ -8,7 +8,7 @@ import pdfplumber
 
 st.title("M-Pesa Statement Analyzer & Transactions Search Engine")
 st.markdown("""
-This application allows you to upload your M-Pesa statement pdf. It processes/Cleans the data, allows you search and trace transactions and provides quick insights and visualizations.
+This application allows you to upload your M-Pesa statement pdf. It processes/Cleans the data, allows you search and trace transactions and provides quick insights and visualizations of your past spendings.
 - Dowload your M-Pesa statement from Mpesa app and Upload it here. """)
 
 def safe_text(x):
@@ -345,11 +345,7 @@ if uploaded:
     fig.update_yaxes(nticks=6, row=1, col=1)
     fig.update_yaxes(nticks=6, row=1, col=2)
     fig.update_yaxes(nticks=6, row=1, col=3)
-
-    # Rotate x-ticks
     fig.update_xaxes(tickangle=30)
-
-    # Display in Streamlit
     st.plotly_chart(fig, use_container_width=True)
 
     st.write("- Top 5 Transaction types")

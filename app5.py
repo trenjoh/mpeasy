@@ -169,7 +169,7 @@ def clean_mpesa_df(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
-uploaded = st.file_uploader("Upload M-Pesa statement (PDF)", type=["pdf","csv"])
+uploaded = st.file_uploader("Upload M-Pesa statement (PDF)", type=["pdf"])
 
 if uploaded:
     if uploaded.name.lower().endswith(".pdf"):
@@ -478,5 +478,6 @@ if uploaded:
     )
 
     st.dataframe(monthly_summary, use_container_width=True)
+
 
          

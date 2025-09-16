@@ -8,7 +8,7 @@ import pdfplumber
 
 st.title("M-Pesa Statement Analyzer & Transactions Search Engine")
 st.markdown("""
-This application allows you to upload your M-Pesa statement pdf. it processes the  data, allows you search and trace transactions and provides quick insights and visualizations.
+This application allows you to upload your M-Pesa statement pdf. It processes/Cleans the data, allows you search and trace transactions and provides quick insights and visualizations.
 - Dowload your M-Pesa statement from Mpesa app and Upload it here. """)
 
 def safe_text(x):

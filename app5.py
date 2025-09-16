@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import re
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 from io import BytesIO
 import pdfplumber
 
@@ -209,6 +209,18 @@ if uploaded:
         .astype(float)                      # convert to float
         .fillna(0)                          # replace NaN with 0
     )
+    df_clean["completion_time"] = (
+        df_clean["completion_time"]
+        .astype(str)                                 
+        .str.strip()                                  
+        .str.replace(r"[^\w\s:/-]", "", regex=True)
+    )
+
+    df_clean["completion_time"] = pd.to_datetime(
+        df_clean["completion_date"].astype(str) + " " + df_clean["completion_time"].astype(str),
+        errors="coerce"
+    )
+
 
     st.subheader("...Search Transaction by Receipt No.")
 
@@ -268,7 +280,8 @@ if uploaded:
         mime="text/csv"
     )
     
-    st.subheader("Visualization")
+    st.subheader("1. Transaction Exploration")
+    # st.subheader("Visualizations")
     print(df_clean.columns)
 
     import plotly.graph_objects as go
@@ -281,7 +294,7 @@ if uploaded:
     df_clean = df_clean.sort_values("completion_time")
 
     # Create subplot grid (1 row, 3 cols)
-    fig = make_subplots(rows=1, cols=3, subplot_titles=("Paid In", "Withdrawn", "Balance"))
+    fig = make_subplots(rows=2, cols=2, subplot_titles=("Paid In", "Withdrawn", "Balance"))
 
     # Paid In
     fig.add_trace(
@@ -315,7 +328,7 @@ if uploaded:
             line=dict(color="cyan", width=1),
             name="Balance"
         ),
-        row=1, col=3
+        row=2, col=1
     )
 
     # Layout settings (dark theme + linear ticks)
@@ -323,7 +336,7 @@ if uploaded:
         template="plotly_dark",
         height=400,
         width=900,
-        title="M-Pesa Transactions Overview",
+        title=" General M-Pesa Transactions Overview",
         showlegend=False,
         margin=dict(l=40, r=40, t=60, b=40)
     )
@@ -339,7 +352,7 @@ if uploaded:
     # Display in Streamlit
     st.plotly_chart(fig, use_container_width=True)
 
-    st.subheader("Pie and Donut Visualization")
+    st.write("- Top 5 Transaction types")
     import plotly.express as px
  
 
@@ -352,7 +365,7 @@ if uploaded:
         tx_counts,
         names="transaction_type",
         values="count",
-        title="Top 5 Transaction Types - Pie Chart",
+        title="- Pie Chart",
         color_discrete_sequence=px.colors.qualitative.Set3,
         width  = 600,
         height  = 600
@@ -363,7 +376,7 @@ if uploaded:
         tx_counts,
         names="transaction_type",
         values="count",
-        title="Top 5 Transaction Types - Donut Chart",
+        title="- Donut Chart",
         hole=0.5,
         color_discrete_sequence=px.colors.qualitative.Set3,
         width  = 600,
@@ -373,11 +386,11 @@ if uploaded:
     # Display side by side
     col1, col2 = st.columns(2)
     with col1:
-        st.plotly_chart(fig_pie, use_container_width=False)
+        st.plotly_chart(fig_pie, width=False)
     with col2:
-        st.plotly_chart(fig_donut, use_container_width=True)
+        st.plotly_chart(fig_donut, width=True)
         
-    st.subheader("Top 5 Entities by Paid In")
+    st.write("Top 5 Entities by Paid In")
     summary = (
         df_clean.groupby("entity_name")["paid_in"]
         .sum()
@@ -385,7 +398,89 @@ if uploaded:
         .sort_values(by="paid_in", ascending=False)
         .head(5)
     )
-    st.dataframe(summary, use_container_width= True)
+    st.dataframe(summary, width = 'stretch')
+
+    # Heat map
+    df_clean["day_of_week"] = df_clean["completion_time"].dt.day_name()
+    df_clean["hour"] = df_clean["completion_time"].dt.hour
+
+    df_heatmap = (
+        df_clean.groupby(["day_of_week", "hour"])
+        .size()
+        .reset_index(name="count")
+    )
+
+    fig_heatmap = px.density_heatmap(
+        df_heatmap,
+        x="hour",
+        y="day_of_week",
+        z="count",
+        color_continuous_scale="Viridis",
+        title="Transaction Frequency (Day vs Hour)"
+    )
+
+    st.plotly_chart(fig_heatmap, use_container_width=True)
+
+#   Guage // fUNNEL
+    st.subheader("2. Money Flow")
+    st.write("Inflow vs Outflow")
+
+    # calculate totals
+    total_in = df_clean["paid_in"].sum()
+    total_out = df_clean["withdraw_n"].sum()
+    final_balance = df_clean["balance"].iloc[-1]  # last balance
+
+    # Funnel chart (Inflow vs Outflow)
+    funnel_fig = go.Figure(
+        go.Funnel(
+            y=["Total Inflow", "Total Outflow"],
+            x=[total_in, total_out],
+            textinfo="value+percent initial"
+        )
+    )
+    funnel_fig.update_layout(title="Inflow vs Outflow Funnel")
+    st.plotly_chart(funnel_fig, use_container_width=True)
+
+    # Gauge chart (Balance retained % of inflows)
+    retention_pct = (final_balance / total_in * 100) if total_in > 0 else 0
+    gauge_fig = go.Figure(
+        go.Indicator(
+            mode="gauge+number+delta",
+            value=retention_pct,
+            delta={"reference": 100, "relative": False},
+            title={"text": "Retention % (Balance vs Inflow)"},
+            gauge={
+                "axis": {"range": [0, 100]},
+                "bar": {"color": "green"},
+                "steps": [
+                    {"range": [0, 30], "color": "red"},
+                    {"range": [30, 70], "color": "yellow"},
+                    {"range": [70, 100], "color": "lightgreen"},
+                ],
+            },
+        )
+    )
+    st.plotly_chart(gauge_fig, use_container_width=True)
 
 
-    
+    st.subheader("3. Monthly Statement Summary")
+    # Make sure completion_date is datetime
+    df_clean["completion_date"] = pd.to_datetime(df_clean["completion_date"], errors="coerce")
+
+    # Create a 'month' column (Year-Month format)
+    df_clean["month"] = df_clean["completion_date"].dt.to_period("M")
+
+    # Calculate inflow, outflow, closing balance
+    monthly_summary = (
+        df_clean.groupby("month")
+        .agg(
+            inflow=("paid_in", "sum"),
+            outflow=("withdraw_n", "sum"),
+            closing_balance=("balance", "last")  # last balance of the month
+        )
+        .reset_index()
+    )
+
+    st.dataframe(monthly_summary, use_container_width=True)
+
+         
